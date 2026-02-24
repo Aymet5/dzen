@@ -1,0 +1,5 @@
+{
+  "name": "Telegram Bot Manager",
+  "description": "A dashboard and backend for managing a Telegram bot with subscriptions and trial periods.",
+  "requestFramePermissions": []
+}
