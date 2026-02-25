@@ -11,6 +11,8 @@ db.exec(`
     first_name TEXT,
     trial_started_at DATETIME,
     subscription_expires_at DATETIME,
+    vpn_client_email TEXT,
+    vpn_config TEXT,
     last_sub_months INTEGER,
     last_message_id INTEGER,
     expiry_notified INTEGER DEFAULT 0,
@@ -19,6 +21,12 @@ db.exec(`
 `);
 
 // Migrations
+try {
+  db.exec('ALTER TABLE users ADD COLUMN vpn_client_email TEXT;');
+} catch (e) {}
+try {
+  db.exec('ALTER TABLE users ADD COLUMN vpn_config TEXT;');
+} catch (e) {}
 try {
   db.exec('ALTER TABLE users ADD COLUMN last_message_id INTEGER;');
 } catch (e) {}
@@ -35,6 +43,8 @@ export interface User {
   first_name: string | null;
   trial_started_at: string | null;
   subscription_expires_at: string | null;
+  vpn_client_email: string | null;
+  vpn_config: string | null;
   last_sub_months: number | null;
   last_message_id: number | null;
   expiry_notified: number;
@@ -51,6 +61,10 @@ export const createUser = (id: number, username: string | null, first_name: stri
 
 export const updateSubscription = (id: number, expiresAt: string, months: number) => {
   db.prepare('UPDATE users SET subscription_expires_at = ?, last_sub_months = ?, expiry_notified = 0 WHERE id = ?').run(expiresAt, months, id);
+};
+
+export const updateVpnConfig = (id: number, email: string, config: string) => {
+  db.prepare('UPDATE users SET vpn_client_email = ?, vpn_config = ? WHERE id = ?').run(email, config, id);
 };
 
 export const startTrial = (id: number) => {

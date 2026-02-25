@@ -1,5 +1,7 @@
+import 'dotenv/config';
 import { Telegraf, Markup } from 'telegraf';
-import { getUser, createUser, updateSubscription, updateLastMessageId, startTrial, getExpiredUsers, setExpiryNotified, getStats, getAllUsers } from './db';
+import { getUser, createUser, updateSubscription, updateLastMessageId, startTrial, getExpiredUsers, setExpiryNotified, getStats, getAllUsers, updateVpnConfig } from './db';
+import { createVpnClient } from '../services/vpnService';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -156,23 +158,75 @@ bot.action('get_config', async (ctx) => {
   const userId = ctx.from.id;
   await cleanupPreviousMessage(ctx, userId);
 
-  if (hasAccess(userId)) {
-    // Send configuration
-    const configMessage = `
-🛠 **Конфигурации скоро будут доступны!**
+  const user = getUser(userId);
+  if (!user) return;
 
-В данный момент идут технические работы по настройке серверов. 
-Пожалуйста, подождите немного, мы сообщим, когда всё будет готово.
-    `;
-    const sentMessage = await ctx.reply(configMessage, { 
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('💳 Оплатить подписку', 'pay_sub')],
+  if (hasAccess(userId)) {
+    // Check if user already has a config
+    if (user.vpn_config) {
+      const configMessage = `
+🚀 **Ваша конфигурация готова!**
+
+Скопируйте ссылку ниже и вставьте её в приложение (например, V2RayNG или Nekobox):
+
+\`${user.vpn_config}\`
+
+🧘‍♂️ Приятного использования!
+      `;
+      const sentMessage = await ctx.reply(configMessage, { 
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('⬅️ Назад', 'main_menu')]
+        ])
+      });
+      updateLastMessageId(userId, sentMessage.message_id);
+      return await ctx.answerCbQuery();
+    }
+
+    // Generate new config
+    try {
+      await ctx.answerCbQuery('⏳ Генерируем ваш личный ключ...', { show_alert: false });
+      
+      let expiryTime = 0;
+      if (user.subscription_expires_at) {
+        expiryTime = new Date(user.subscription_expires_at).getTime();
+      } else if (user.trial_started_at) {
+        const trialStart = new Date(user.trial_started_at);
+        expiryTime = trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000;
+      }
+
+      const vpnData = await createVpnClient(userId, user.username || `user_${userId}`, expiryTime);
+      updateVpnConfig(userId, vpnData.email, vpnData.config);
+
+      const configMessage = `
+🚀 **Ваш личный ключ создан!**
+
+Скопируйте ссылку ниже и добавьте её в VPN-клиент:
+
+\`${vpnData.config}\`
+
+📖 **Как пользоваться?**
+1. Скачайте **V2RayNG** (Android) или **Nekobox** / **V2Box** (iOS).
+2. Скопируйте ключ выше.
+3. В приложении нажмите "+" -> "Import from Clipboard".
+4. Нажмите на появившийся профиль и кнопку подключения.
+
+🧘‍♂️ Приятного использования!
+      `;
+      const sentMessage = await ctx.reply(configMessage, { 
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('⬅️ Назад', 'main_menu')]
+        ])
+      });
+      updateLastMessageId(userId, sentMessage.message_id);
+    } catch (error) {
+      console.error('VPN Creation error:', error);
+      const sentMessage = await ctx.reply('❌ Произошла ошибка при создании ключа. Пожалуйста, попробуйте позже или обратитесь в поддержку.', Markup.inlineKeyboard([
         [Markup.button.callback('⬅️ Назад', 'main_menu')]
-      ])
-    });
-    updateLastMessageId(userId, sentMessage.message_id);
-    await ctx.answerCbQuery();
+      ]));
+      updateLastMessageId(userId, sentMessage.message_id);
+    }
   } else {
     await ctx.answerCbQuery('❌ Пробный период или подписка истекли.', { show_alert: true });
     const sentMessage = await ctx.reply('Твой пробный период или подписка закончились. Пожалуйста, оплати подписку.', Markup.inlineKeyboard([
