@@ -1,7 +1,7 @@
 import axios from 'axios';
 import crypto from 'crypto';
 
-const XUI_URL = process.env.XUI_URL || 'http://127.0.0.1:36983';
+const XUI_URL = process.env.XUI_URL || 'http://127.0.0.1:80';
 const XUI_USER = process.env.XUI_USER || 'admin';
 const XUI_PASS = process.env.XUI_PASS || 'admin';
 const XUI_INBOUND_ID = parseInt(process.env.XUI_INBOUND_ID || '1');
