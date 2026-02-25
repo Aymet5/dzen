@@ -50,6 +50,7 @@ export async function createVpnClient(userId: number, email: string, expiryTime:
       settings: JSON.stringify({
         clients: [{
           id: uuid,
+          flow: "xtls-rprx-vision",
           email: clientEmail,
           limitIp: 0,
           totalGB: 0,
