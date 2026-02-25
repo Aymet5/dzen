@@ -11,7 +11,7 @@ if (!token) {
 
 export const bot = new Telegraf(token || 'DUMMY_TOKEN');
 
-const TRIAL_DAYS = 3;
+const TRIAL_DAYS = 7;
 const REQUIRED_CHANNEL_ID = process.env.REQUIRED_CHANNEL_ID || '@dzen17vpn';
 const APP_URL = process.env.APP_URL || 'https://example.com';
 const ADMIN_ID = 5446101221; // Your ID
@@ -94,7 +94,7 @@ const sendWelcomeMessage = async (ctx: any, userId: number, firstName: string | 
     welcomeMessage += `\n🎁 **Пробный период активен!**\n📅 Истекает: ${expiryDate?.toLocaleDateString('ru-RU')}`;
     buttons.push([Markup.button.callback('🚀 Получить конфигурацию', 'get_config')]);
   } else if (!trialStarted) {
-    welcomeMessage += `\n🎁 Вам доступен **пробный период на 3 дня**. Нажмите кнопку ниже, чтобы активировать его.`;
+    welcomeMessage += `\n🎁 Вам доступен **пробный период на 7 дней**. Нажмите кнопку ниже, чтобы активировать его.`;
     buttons.push([Markup.button.callback('🎁 Активировать пробный период', 'start_trial')]);
   } else {
     welcomeMessage += `\n❌ Ваша подписка или пробный период истекли.`;
@@ -145,7 +145,7 @@ bot.action('start_trial', async (ctx) => {
   
   if (user && user.trial_started_at === null) {
     startTrial(userId);
-    await ctx.answerCbQuery('✅ Пробный период на 3 дня активирован!', { show_alert: true });
+    await ctx.answerCbQuery('✅ Пробный период на 7 дней активирован!', { show_alert: true });
     await cleanupPreviousMessage(ctx, userId);
     await sendWelcomeMessage(ctx, userId, ctx.from.first_name || null);
   } else {
@@ -167,15 +167,23 @@ bot.action('get_config', async (ctx) => {
       const configMessage = `
 🚀 **Ваша конфигурация готова!**
 
-Скопируйте ссылку ниже и вставьте её в приложение (например, V2RayNG или Nekobox):
+Скопируйте ссылку ниже (просто нажмите на неё) и добавьте в VPN-клиент:
 
 \`${user.vpn_config}\`
+
+📖 **Как пользоваться?**
+1. Скачайте приложение по кнопкам ниже.
+2. Скопируйте ваш ключ.
+3. В приложении нажмите "+" -> "Импорт из буфера обмена" (Import from Clipboard).
+4. Нажмите на появившийся профиль и кнопку подключения.
 
 🧘‍♂️ Приятного использования!
       `;
       const sentMessage = await ctx.reply(configMessage, { 
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
+          [Markup.button.url('🤖 Скачать для Android', 'https://play.google.com/store/apps/details?id=com.v2ray.ang')],
+          [Markup.button.url('🍏 Скачать для iOS', 'https://apps.apple.com/us/app/v2box-v2ray-client/id6446814690')],
           [Markup.button.callback('⬅️ Назад', 'main_menu')]
         ])
       });
@@ -201,14 +209,14 @@ bot.action('get_config', async (ctx) => {
       const configMessage = `
 🚀 **Ваш личный ключ создан!**
 
-Скопируйте ссылку ниже и добавьте её в VPN-клиент:
+Скопируйте ссылку ниже (просто нажмите на неё) и добавьте в VPN-клиент:
 
 \`${vpnData.config}\`
 
 📖 **Как пользоваться?**
-1. Скачайте **V2RayNG** (Android) или **Nekobox** / **V2Box** (iOS).
-2. Скопируйте ключ выше.
-3. В приложении нажмите "+" -> "Import from Clipboard".
+1. Скачайте приложение по кнопкам ниже.
+2. Скопируйте ваш ключ.
+3. В приложении нажмите "+" -> "Импорт из буфера обмена" (Import from Clipboard).
 4. Нажмите на появившийся профиль и кнопку подключения.
 
 🧘‍♂️ Приятного использования!
@@ -216,6 +224,8 @@ bot.action('get_config', async (ctx) => {
       const sentMessage = await ctx.reply(configMessage, { 
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
+          [Markup.button.url('🤖 Скачать для Android', 'https://play.google.com/store/apps/details?id=com.v2ray.ang')],
+          [Markup.button.url('🍏 Скачать для iOS', 'https://apps.apple.com/us/app/v2box-v2ray-client/id6446814690')],
           [Markup.button.callback('⬅️ Назад', 'main_menu')]
         ])
       });

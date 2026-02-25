@@ -83,7 +83,7 @@ export const getExpiredUsers = (): User[] => {
     AND (
       (subscription_expires_at IS NOT NULL AND datetime(subscription_expires_at) < datetime('now'))
       OR 
-      (trial_started_at IS NOT NULL AND subscription_expires_at IS NULL AND datetime(trial_started_at, '+3 days') < datetime('now'))
+      (trial_started_at IS NOT NULL AND subscription_expires_at IS NULL AND datetime(trial_started_at, '+7 days') < datetime('now'))
     )
   `).all() as User[];
 };
@@ -91,13 +91,13 @@ export const getExpiredUsers = (): User[] => {
 export const getStats = () => {
   const total = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
   const active_subs = db.prepare("SELECT COUNT(*) as count FROM users WHERE subscription_expires_at IS NOT NULL AND datetime(subscription_expires_at) > datetime('now')").get() as { count: number };
-  const active_trials = db.prepare("SELECT COUNT(*) as count FROM users WHERE trial_started_at IS NOT NULL AND subscription_expires_at IS NULL AND datetime(trial_started_at, '+3 days') > datetime('now')").get() as { count: number };
+  const active_trials = db.prepare("SELECT COUNT(*) as count FROM users WHERE trial_started_at IS NOT NULL AND subscription_expires_at IS NULL AND datetime(trial_started_at, '+7 days') > datetime('now')").get() as { count: number };
   const expired = db.prepare(`
     SELECT COUNT(*) as count FROM users 
     WHERE 
       (subscription_expires_at IS NOT NULL AND datetime(subscription_expires_at) < datetime('now'))
       OR 
-      (trial_started_at IS NOT NULL AND subscription_expires_at IS NULL AND datetime(trial_started_at, '+3 days') < datetime('now'))
+      (trial_started_at IS NOT NULL AND subscription_expires_at IS NULL AND datetime(trial_started_at, '+7 days') < datetime('now'))
   `).get() as { count: number };
 
   // Note: We don't have a payments table, so we simulate payment stats based on active subs for now
