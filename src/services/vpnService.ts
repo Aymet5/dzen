@@ -43,35 +43,9 @@ export async function createVpnClient(userId: number, email: string, expiryTime:
     const uuid = crypto.randomUUID();
     const clientEmail = `${email}_${userId}`;
     
-    console.log(`Creating client ${clientEmail} for inbound ${XUI_INBOUND_ID}...`);
+    console.log(`Creating/fetching client ${clientEmail} for inbound ${XUI_INBOUND_ID}...`);
     
-    const clientData = {
-      id: XUI_INBOUND_ID,
-      settings: JSON.stringify({
-        clients: [{
-          id: uuid,
-          flow: "xtls-rprx-vision",
-          email: clientEmail,
-          limitIp: 0,
-          totalGB: 0,
-          expiryTime: expiryTime,
-          enable: true,
-          tgId: userId.toString(),
-          subId: ""
-        }]
-      })
-    };
-
-    const addResponse = await axios.post(`${XUI_URL}/panel/api/inbounds/addClient`, clientData, {
-      headers: { Cookie: cookie },
-      timeout: 5000
-    });
-
-    if (!addResponse.data || !addResponse.data.success) {
-      throw new Error(`Failed to add client to panel: ${addResponse.data?.msg || 'Unknown error'}`);
-    }
-
-    // Get inbound details to construct the config
+    // First, get the inbound to check if client already exists
     const inboundsResponse = await axios.get(`${XUI_URL}/panel/api/inbounds/get/${XUI_INBOUND_ID}`, {
       headers: { Cookie: cookie }
     });
@@ -80,6 +54,40 @@ export async function createVpnClient(userId: number, email: string, expiryTime:
     if (!inbound) throw new Error(`Inbound with ID ${XUI_INBOUND_ID} not found in panel.`);
 
     const streamSettings = JSON.parse(inbound.streamSettings);
+    const clientStats = inbound.clientStats || [];
+    const settings = JSON.parse(inbound.settings);
+    
+    let existingClient = settings.clients.find((c: any) => c.email === clientEmail);
+    let uuid = existingClient ? existingClient.id : crypto.randomUUID();
+
+    if (!existingClient) {
+      const clientData = {
+        id: XUI_INBOUND_ID,
+        settings: JSON.stringify({
+          clients: [{
+            id: uuid,
+            flow: streamSettings.security === 'reality' ? "xtls-rprx-vision" : "",
+            email: clientEmail,
+            limitIp: 0,
+            totalGB: 0,
+            expiryTime: expiryTime,
+            enable: true,
+            tgId: userId.toString(),
+            subId: ""
+          }]
+        })
+      };
+
+      const addResponse = await axios.post(`${XUI_URL}/panel/api/inbounds/addClient`, clientData, {
+        headers: { Cookie: cookie },
+        timeout: 5000
+      });
+
+      if (!addResponse.data || !addResponse.data.success) {
+        throw new Error(`Failed to add client to panel: ${addResponse.data?.msg || 'Unknown error'}`);
+      }
+    }
+
     const remark = `DzenVPN_${userId}`;
     const port = inbound.port;
     
@@ -87,14 +95,23 @@ export async function createVpnClient(userId: number, email: string, expiryTime:
     
     // Check if Reality is enabled
     if (streamSettings.security === 'reality') {
-      const sni = streamSettings.realitySettings.serverNames[0];
-      const pbk = streamSettings.realitySettings.publicKey;
-      const sid = streamSettings.realitySettings.shortIds[0];
+      const sni = streamSettings.realitySettings.serverNames[0] || 'google.com';
+      const pbk = streamSettings.realitySettings.publicKey || '';
+      const sid = streamSettings.realitySettings.shortIds[0] || '';
       const flow = "xtls-rprx-vision";
       config = `vless://${uuid}@${PUBLIC_IP}:${port}?type=tcp&security=reality&sni=${sni}&fp=chrome&pbk=${pbk}&sid=${sid}&flow=${flow}#${remark}`;
     } else {
-      // Fallback to simple VLESS
-      config = `vless://${uuid}@${PUBLIC_IP}:${port}?type=${streamSettings.network || 'tcp'}&security=${streamSettings.security || 'none'}#${remark}`;
+      // Fallback to simple VLESS (e.g. ws)
+      const network = streamSettings.network || 'tcp';
+      const path = network === 'ws' ? (streamSettings.wsSettings?.path || '/') : '';
+      const host = network === 'ws' ? (streamSettings.wsSettings?.headers?.Host || '') : '';
+      
+      config = `vless://${uuid}@${PUBLIC_IP}:${port}?type=${network}&security=${streamSettings.security || 'none'}`;
+      if (network === 'ws') {
+        config += `&path=${encodeURIComponent(path)}`;
+        if (host) config += `&host=${encodeURIComponent(host)}`;
+      }
+      config += `#${remark}`;
     }
 
     console.log(`VPN Config generated successfully for user ${userId}`);
